@@ -1,29 +1,16 @@
 # Fish Tamamlama - Modüler Yükleyici (init.fish)
 
 # 1. Görsel ve Davranış Ayarları
-# Hayalet metin rengini ayarla (gri)
 set -g fish_color_autosuggestion 555 br-black
-
-# Tab tuşu davranışı: İlk basışta tamamlama menüsünü aç, menü açıkken Tab ile sonraki öğeye geç
 bind \t complete
 bind -M completion \t down-or-search
 bind -M completion [backtab] up-or-search
 
-# 2. Yardımcı Fonksiyonları Yükle (Kurulum desteği için)
+# 2. Fonksiyonları Yükle (ukur komutu ve yardımcılar)
 set -l current_dir (realpath (dirname (status filename)))
 source $current_dir/functions/__fish_tamamlama_utils.fish
 
-# 3. Kritik Araçların Varlığını Kontrol Et ve Kurulum Teklif Et
-# Rustup ve Cargo kontrolü
-__fish_tamamlama_check_and_install rustup rustup
-
-# Diğer araçların kontrolü (Cargo ile kurulabilenler)
-set -l cargo_tools rg mdbook wasm-bindgen rust-analyzer
-for tool in $cargo_tools
-    __fish_tamamlama_check_and_install $tool cargo
-end
-
-# 4. Modüler Tamamlamaları Yükle
+# 3. Modüler Tamamlamaları Yükle
 set -l commands_dir "$current_dir/commands"
 
 # Tanımlı tüm araçların listesi (Temizlik için)
@@ -35,7 +22,7 @@ for tool in $all_tools
 end
 
 if test -d $commands_dir
-    # Önce yolları ekle (Path Injection)
+    # Yolları ekle
     for cmd_dir in $commands_dir/*
         if test -d $cmd_dir/completions
             if not contains $cmd_dir/completions $fish_complete_path
@@ -49,7 +36,7 @@ if test -d $commands_dir
         end
     end
 
-    # Sonra dosyaları yükle (Zorunlu yükleme)
+    # Dosyaları yükle
     for cmd_dir in $commands_dir/*
         if test -d $cmd_dir/completions
             for f in $cmd_dir/completions/*.fish
@@ -61,4 +48,4 @@ if test -d $commands_dir
     end
 end
 
-echo "Fish tamamlama sistemi aktif edildi. Toplam (count $all_tools) araç denetlendi."
+echo "Fish tamamlama sistemi yüklendi. Eksik araçları kurmak için 'ukur <araç>' komutunu kullanabilirsiniz."
