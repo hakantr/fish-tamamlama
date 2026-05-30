@@ -4,7 +4,7 @@
 set -g fish_color_autosuggestion 555 br-black
 bind \t complete
 bind -M completion \t down-or-search
-bind -M completion \e[Z up-or-search
+bind -M completion '\e[Z' up-or-search
 
 # 2. Fonksiyonları Yükle (ukur komutu ve yardımcılar)
 set -l current_dir (realpath (dirname (status filename)))
