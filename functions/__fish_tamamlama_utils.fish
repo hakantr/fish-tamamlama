@@ -1,7 +1,7 @@
 # Fish Tamamlama - Yardımcı Fonksiyonlar
 
 # ukur: "Uygulama KUR" kelimelerinin kısaltması
-function ukur -d "Sistemde eksik olan araçları akıllıca kurar"
+function ukur -d "Sistemde eksik olan araçları crates.io ve Homebrew üzerinden dinamik olarak arayıp kurar"
     set -l tool_name $argv[1]
     
     if test -z "$tool_name"
@@ -19,60 +19,63 @@ function ukur -d "Sistemde eksik olan araçları akıllıca kurar"
     # MacOS için Brew Kontrolü ve Kurulumu
     if test "$os_type" = "Darwin"
         if not command -v brew >/dev/null
-            echo (set_color yellow)"Brew (Homebrew) bulunamadı. Kurulmasını ister misiniz? (y/n): "(set_color normal)
+            echo (set_color yellow)"Brew (Homebrew) bulunamadı."(set_color normal)
+            echo -n "Brew kurulmasını ister misiniz? (E/H): "
             read -l confirm_brew
-            if test "$confirm_brew" = "y" -o "$confirm_brew" = "Y"
+            if string match -qi "e*" "$confirm_brew"
                 echo "Homebrew kuruluyor..."
                 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-                # Brew yolunu oturuma ekle (Mac M1/M2/Intel farkı için)
                 if test -f /opt/homebrew/bin/brew
                     eval (/opt/homebrew/bin/brew shellenv)
                 else if test -f /usr/local/bin/brew
                     eval (/usr/local/bin/brew shellenv)
                 end
             else
-                echo "Brew olmadan kurulum devam edemez."
-                return 1
+                echo "Brew kurulumu reddedildi."
             end
         end
     end
 
-    # Kurulum Stratejisi
-    echo (set_color yellow)"'$tool_name' sistemde bulunamadı. Kurulmasını ister misiniz? (y/n): "(set_color normal)
-    read -l confirm
-
-    if test "$confirm" = "y" -o "$confirm" = "Y"
-        # 1. Rust Araçları Stratejisi (Her iki OS için)
-        set -l rust_tools rg mdbook wasm-bindgen rust-analyzer cargo-clippy cargo-fmt
-        if contains $tool_name $rust_tools
-            if not command -v cargo >/dev/null
-                echo "Cargo bulunamadı, önce Rust (rustup) kuruluyor..."
-                curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --profile complete
-                source $HOME/.cargo/env
+    # 1. Cargo (crates.io) üzerinde ara
+    echo (set_color cyan)"crates.io üzerinde '$tool_name' aranıyor..."(set_color normal)
+    if command -v cargo >/dev/null
+        # Tam eşleşme kontrolü (crates.io'da paket adının başlangıcı ile eşleşmeli)
+        set -l cargo_match (cargo search $tool_name --limit 1 | grep -iE "^$tool_name\s*=")
+        if test -n "$cargo_match"
+            echo (set_color green)"crates.io üzerinde bulundu: $cargo_match"(set_color normal)
+            echo -n "Cargo ile kurulsun mu? (E/H): "
+            read -l confirm_cargo
+            if string match -qi "e*" "$confirm_cargo"
+                echo "Cargo ile kuruluyor..."
+                # rg örneği için özel durum (ripgrep)
+                if test "$tool_name" = "rg"
+                    cargo install ripgrep
+                else
+                    cargo install $tool_name
+                end
+                return
             end
-            
-            echo "Cargo kullanılarak '$tool_name' kuruluyor..."
-            if test "$tool_name" = "rg"
-                cargo install ripgrep
-            else
-                cargo install $tool_name
-            end
-            return
-        end
-
-        # 2. MacOS - Brew Stratejisi
-        if test "$os_type" = "Darwin"
-            echo "Homebrew kullanılarak '$tool_name' kuruluyor..."
-            brew install $tool_name
-            return
-        end
-
-        # 3. Linux - Bilgilendirme
-        if test "$os_type" = "Linux"
-            echo (set_color red)"Linux üzerinde şu an için sadece Rust ekosistemi otomatik kurulabilmektedir."(set_color normal)
-            echo "Lütfen '$tool_name' aracını paket yöneticinizle (apt, pacman vb.) manuel kurun."
         end
     else
-        echo "Kurulum iptal edildi."
+        echo (set_color yellow)"Bilgi: Cargo kurulu olmadığı için crates.io araması atlandı."(set_color normal)
     end
+
+    # 2. Homebrew üzerinde ara (Sadece macOS veya Linux'ta brew yüklüyse)
+    if command -v brew >/dev/null
+        echo (set_color cyan)"Homebrew üzerinde '$tool_name' aranıyor..."(set_color normal)
+        if brew info $tool_name >/dev/null 2>&1
+            echo (set_color green)"Homebrew üzerinde bulundu."(set_color normal)
+            echo -n "Brew ile kurulsun mu? (E/H): "
+            read -l confirm_brew_inst
+            if string match -qi "e*" "$confirm_brew_inst"
+                echo "Homebrew ile kuruluyor..."
+                brew install $tool_name
+                return
+            end
+        end
+    end
+
+    # 3. Sonuç bulunamadıysa
+    echo (set_color red)"Hata: '$tool_name' ne crates.io (Cargo) ne de Homebrew üzerinde bulunamadı."(set_color normal)
+    echo "Şu an için sadece Rust ve Brew ekosistemleri desteklenmektedir."
 end
